@@ -14,58 +14,6 @@ from datasets import merged_tudatasets
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 import random
 
-def single_train_test(train_dataset,
-                      test_dataset,
-                      model_func,
-                      epochs,
-                      batch_size,
-                      lr,
-                      lr_decay_factor,
-                      lr_decay_step_size,
-                      weight_decay,
-                      epoch_select,
-                      with_eval_mode=True):
-    assert epoch_select in ['test_last', 'test_max'], epoch_select
-
-    model = model_func(train_dataset).to(device)
-    print_weights(model)
-    optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-
-    train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
-    train_accs, test_accs = [], []
-    t_start = time.perf_counter()
-    for epoch in range(1, epochs + 1):
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-
-        train_loss, train_acc = train(
-            model, optimizer, train_loader, device)
-        train_accs.append(train_acc)
-        test_accs.append(eval_acc(model, test_loader, device, with_eval_mode))
-
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-
-        print('Epoch: {:03d}, Train Acc: {:.4f}, Test Acc: {:.4f}'.format(
-            epoch, train_accs[-1], test_accs[-1]))
-        sys.stdout.flush()
-
-        if epoch % lr_decay_step_size == 0:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr_decay_factor * param_group['lr']
-
-    t_end = time.perf_counter()
-    duration = t_end - t_start
-
-    if epoch_select == 'test_max':
-        train_acc = max(train_accs)
-        test_acc = max(test_accs)
-    else:
-        train_acc = train_accs[-1]
-        test_acc = test_accs[-1]
-
-    return train_acc, test_acc, duration
 
 
 from copy import deepcopy
@@ -295,87 +243,8 @@ def shuffle_semi(dataset, c_train_num, c_val_num, n_percents=0.3):
     print(train_index, train_index_unlabel)
     return train_dataset, val_dataset, test_dataset, train_dataset_unlabel
 
-def aug_extend_with_label(dataset, aug, aug_ratio, aug_num):
-    dataset.aug = "none"
-    y = torch.tensor([data.y.item() for data in dataset])
-    #print(torch.bincount(y))
-    min_class = torch.argmin(torch.bincount(y)).item()
-    index = torch.where(y == min_class)[0]
-    dataset_new = deepcopy(dataset)
-    for i in range(aug_num):
-        dataset_sub = deepcopy(dataset[index])
-        dataset_sub.aug, dataset_sub.aug_ratio = aug, aug_ratio
-        dataset_new = merged_tudatasets(dataset_new, dataset_sub)
-    return dataset_new
 
-def aug_extend_wo_label(model, dataset, aug, aug_ratio, aug_num, batch_size, score):
-    dataset.aug = "none"
-    loader = DataLoader(dataset, batch_size, shuffle=False)
-    model.eval()
-    score = torch.tensor(score)
-    loss = 0
-    all_probs, all_preds = [], []
-    for data in loader:
-        data = data.to(device)
-        with torch.no_grad():
-            pred, _, _, _ = model(data)
-            prob = torch.softmax(pred, dim=1).max(1)[0]
-            pred = pred.max(1)[1]
-        all_probs.append(prob.cpu())
-        all_preds.append(pred.cpu())
-    
-    all_probs = torch.cat(all_probs)
-    all_preds = torch.cat(all_preds)
-    #print(torch.bincount(all_preds))
-    mask = [all_probs[idx] >= score[all_preds[idx]] for idx in range(len(all_preds))]
-    if np.sum(mask) > 0:
-        min_class = torch.argmin(torch.bincount(all_preds[mask])).item()
-        #print(torch.bincount(all_preds[mask]))
-        index = torch.where(all_preds[mask] == min_class)[0]
-        dataset_new = deepcopy(dataset)
-        if len(index) > 0:
-            for i in range(aug_num):
-                dataset_sub = deepcopy(dataset[index])
-                dataset_sub.aug, dataset_sub.aug_ratio = aug, aug_ratio
-                dataset_new = merged_tudatasets(dataset_new, dataset_sub)
-    else:
-        dataset_new = deepcopy(dataset)
-    #print(np.sum(mask), len(dataset), len(dataset_new))
-    return dataset_new
 
-def upsample(dataset):
-    y = torch.tensor([dataset[i].y for i in range(len(dataset))])
-    classes = torch.unique(y)
-
-    num_class_graph = [(y == i.item()).sum() for i in classes]
-
-    max_num_class_graph = max(num_class_graph)
-
-    chosen = []
-    for i in range(len(classes)):
-        train_idx = torch.where((y == classes[i]) == True)[0].tolist()
-
-        up_sample_ratio = max_num_class_graph / num_class_graph[i]
-        up_sample_num = int(
-            num_class_graph[i] * up_sample_ratio - num_class_graph[i])
-
-        if(up_sample_num <= len(train_idx)):
-            up_sample = random.sample(train_idx, up_sample_num)
-        else:
-            tmp = int(up_sample_num / len(train_idx))
-            up_sample = train_idx * tmp
-            tmp = up_sample_num - len(train_idx) * tmp
-
-            up_sample.extend(random.sample(train_idx, tmp))
-
-        chosen.extend(up_sample)
-
-    chosen = torch.tensor(chosen)
-    extend_data = dataset[chosen]
-
-    #data = list(dataset) + list(extend_data)
-    data = merged_tudatasets(dataset, extend_data)
-    return data
 
 def ib_loss(input_values, ib):
     """Computes the focal loss"""
