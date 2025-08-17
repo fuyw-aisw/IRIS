@@ -42,16 +42,10 @@ class TUDatasetExt(TUDataset):
                  pre_filter=None,
                  use_node_attr=False,
                  processed_filename='data.pt',
-                 aug="none", aug_ratio=None,
-                 p_edge_node=None,
-                 deg_max=None,
-                 deg_min=None):
+                 aug="none", aug_ratio=None,):
         self.processed_filename = processed_filename
         self.aug = "none"
         self.aug_ratio = None
-        self.p_edge_node = p_edge_node
-        self.deg_max = deg_max
-        self.deg_min = deg_min
         super(TUDatasetExt, self).__init__(root, name, transform, pre_transform,
                                            pre_filter, use_node_attr)
     @property
@@ -126,28 +120,6 @@ class TUDatasetExt(TUDataset):
             else:
                 print('sample augmentation error')
                 assert False
-        elif self.aug in ['DoOA', 'DoOA-e', 'DoOA-n']:
-            ri_edge = np.random.uniform(0,1)
-            ri_node = np.random.uniform(0,1)            
-            deg = degree(data.edge_index[0]).mean().item()
-            scal = np.log(self.deg_max / self.deg_min)
-            p_edge = (self.p_edge_node - (1 - self.p_edge_node)) * np.log(deg / self.deg_min) / scal + 1 - self.p_edge_node
-            mask_edge = ri_edge <= p_edge
-            p_node = ((1 - self.p_edge_node) - self.p_edge_node) * np.log(deg / self.deg_min) / scal + self.p_edge_node
-            mask_node = ri_node <= p_node
-            if self.aug == 'DoOA':
-                if mask_edge and mask_node:
-                    data = mask_nodes(drop_edges(data, self.aug_ratio), self.aug_ratio)
-                elif mask_edge and not mask_node:
-                    data = drop_edges(data, self.aug_ratio)
-                elif not mask_edge and mask_node:
-                    data = mask_nodes(data, self.aug_ratio)
-            elif self.aug == 'DoOA-e':
-                if mask_edge:
-                    data = drop_edges(data, self.aug_ratio)
-            elif self.aug == 'DoDA-n':
-                if mask_node:
-                    data = mask_nodes(data, self.aug_ratio)
         else:
             print('augmentation error')
             assert False
