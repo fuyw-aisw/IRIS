@@ -8,7 +8,7 @@ from feature_expansion import FeatureExpander
 from tu_dataset import TUDatasetExt
 
 
-def get_dataset(name, sparse=True, feat_str="deg+ak3+reall", root=None, aug=None, aug_ratio=None, p_edge_node=None):
+def get_dataset(name, sparse=True, feat_str="deg+ak3+reall", root=None, aug=None, aug_ratio=None):
     if root is None or root == '':
         path = osp.join(osp.expanduser('~'), 'pyG_data', name)
     else:
@@ -41,19 +41,12 @@ def get_dataset(name, sparse=True, feat_str="deg+ak3+reall", root=None, aug=None
     dataset = TUDatasetExt(
         path, name, pre_transform=pre_transform,
         use_node_attr=True, processed_filename="data_%s.pt" % feat_str,
-        aug=aug, aug_ratio=aug_ratio, p_edge_node=p_edge_node
+        aug=aug, aug_ratio=aug_ratio
     )
-    degs = [degree(data.edge_index[0], data.num_nodes).mean().item() for data in dataset]
-    degs = sorted(degs)
-    dataset_new = TUDatasetExt(
-        path, name, pre_transform=pre_transform,
-        use_node_attr=True, processed_filename="data_%s.pt" % feat_str,
-        aug=aug, aug_ratio=aug_ratio, p_edge_node=p_edge_node,
-        deg_max=degs[-1], deg_min=degs[0]
-    )    
-    dataset_new.data.edge_attr = None
 
-    return dataset_new
+    dataset.data.edge_attr = None
+
+    return dataset
 
 def merged_tudatasets(dataset1, dataset2):
     aug1, aug_ratio1 = dataset1.aug, dataset1.aug_ratio
