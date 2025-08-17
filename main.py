@@ -168,7 +168,7 @@ def run_exp_lib(dataset_feat_net_triples,
             exp_id+1, exp_nums, dataset_name, feat_str, net))
         sys.stdout.flush()
         dataset = get_dataset(
-            dataset_name, sparse=True, feat_str=feat_str, root=args.data_root, p_edge_node=args.p_edge_node)
+            dataset_name, sparse=True, feat_str=feat_str, root=args.data_root)
         model_func = get_model(net)
         acc, f1, info = cross_validation_with_label(
                 dataset,
