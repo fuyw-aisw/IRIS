@@ -431,7 +431,7 @@ def cross_validation_with_label(dataset,
         _, selected_epoch = (test_acc+test_f1).max(dim=0)
     else:
         _, selected_epoch = val_loss.min(dim=0)
-    print(selected_epoch)
+    #print(selected_epoch)
     test_acc = test_acc[selected_epoch]
     test_f1 = test_f1[selected_epoch]
     sys.stdout.flush()
