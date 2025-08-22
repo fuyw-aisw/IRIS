@@ -31,8 +31,7 @@ class TUDatasetExt(TUDataset):
             (default: :obj:`False`)
     """
 
-    url = 'https://ls11-www.cs.tu-dortmund.de/people/morris/' \
-          'graphkerneldatasets'
+    url = 'https://www.chrsmrrs.com/graphkerneldatasets'
 
     def __init__(self,
                  root,
